@@ -35,7 +35,14 @@ contains
     IMPLICIT NONE
     integer(ikind):: nd
 
-    do nd=0,speciesx%ndmax-1,3
+    ! Loop bound was `ndmax-1` which writes 1 element past the kid/kunit
+    ! arrays when ndmax = nsmax*5 (line 82) but the stride is 3.
+    ! With nsmax=4, ndmax=20, last iteration nd=18 writes kid(21) which
+    ! overflows 32 bytes of CHARACTER(LEN=32) past the array end and
+    ! smashes adjacent malloc metadata, causing
+    ! "corrupted size vs prev_size" SIGABRT in callers (notably the
+    ! libtrapi.so Python wrapper). Stop at the last full triplet.
+    do nd=0,speciesx%ndmax-3,3
        speciesx%kid(nd+1)='species%pa'
        speciesx%kid(nd+2)='species%pz'
        speciesx%kid(nd+3)='species%npa'
