@@ -262,6 +262,10 @@ contains
                call bpsd_load_metric1D(datax,ierr)
     if(datax%dataName(1:7).eq.'plasmaf')  &
                call bpsd_load_plasmaf(datax,ierr)
+    if(datax%dataName(1:8).eq.'trmatrix') &
+               call bpsd_load_trmatrix(datax,ierr)
+    if(datax%dataName(1:8).eq.'trsource') &
+               call bpsd_load_trsource(datax,ierr)
 
     deallocate(datax%data)
     deallocate(datax%rho)

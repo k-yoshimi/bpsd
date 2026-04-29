@@ -7,7 +7,8 @@ module bpsd_trmatrix
   use bpsd_types
   use bpsd_types_internal
   public bpsd_put_trmatrix,bpsd_get_trmatrix, &
-         bpsd_save_trmatrix,bpsd_load_trmatrix
+         bpsd_save_trmatrix,bpsd_load_trmatrix, &
+         bpsd_get_trmatrix_kdata
   private
 
   logical, save :: bpsd_trmatrixx_init_flag = .TRUE.
@@ -57,25 +58,19 @@ contains
     IMPLICIT NONE
     integer(ikind):: nd
 
-    do nd=0,trmatrixx%ndmax-2,5
-       trmatrixx%kid(nd+1)='trmatrix%nip'
-       trmatrixx%kid(nd+2)='trmatrix%nim'
-       trmatrixx%kid(nd+3)='trmatrix%ncx'
-       trmatrixx%kid(nd+4)='trmatrix%Pec'
-       trmatrixx%kid(nd+5)='trmatrix%Plh'
-       trmatrixx%kid(nd+6)='trmatrix%Pic'
-       trmatrixx%kid(nd+7)='trmatrix%Pbr'
-       trmatrixx%kid(nd+8)='trmatrix%Pcy'
-       trmatrixx%kid(nd+9)='trmatrix%Plr'
-       trmatrixx%kunit(nd+1)='1/(m^3 s)'
-       trmatrixx%kunit(nd+2)='1/(m^3 s)'
-       trmatrixx%kunit(nd+3)='1/(m^3 s)'
-       trmatrixx%kunit(nd+4)='W1/m^3'
-       trmatrixx%kunit(nd+5)='W1/m^3'
-       trmatrixx%kunit(nd+6)='W1/m^3'
-       trmatrixx%kunit(nd+7)='W1/m^3'
-       trmatrixx%kunit(nd+8)='W1/m^3'
-       trmatrixx%kunit(nd+9)='W1/m^3'
+    do nd=0,trmatrixx%ndmax-1,6
+       trmatrixx%kid(nd+1)='trmatrix%Dn'
+       trmatrixx%kid(nd+2)='trmatrix%Dp'
+       trmatrixx%kid(nd+3)='trmatrix%DT'
+       trmatrixx%kid(nd+4)='trmatrix%un'
+       trmatrixx%kid(nd+5)='trmatrix%up'
+       trmatrixx%kid(nd+6)='trmatrix%uT'
+       trmatrixx%kunit(nd+1)='m^2/s'
+       trmatrixx%kunit(nd+2)='m^2/s'
+       trmatrixx%kunit(nd+3)='m^2/s'
+       trmatrixx%kunit(nd+4)='m/s'
+       trmatrixx%kunit(nd+5)='m/s'
+       trmatrixx%kunit(nd+6)='m/s'
     enddo
     RETURN
   END SUBROUTINE bpsd_setup_trmatrix_kdata
@@ -93,7 +88,7 @@ contains
     if(bpsd_trmatrixx_init_flag) call bpsd_init_trmatrixx
 
     trmatrixx%nrmax=trmatrix_in%nrmax
-    trmatrixx%ndmax=trmatrix_in%nsmax*9
+    trmatrixx%ndmax=trmatrix_in%nsmax*6
     CALL bpsd_adjust_karray(trmatrixx%kid,trmatrixx%ndmax)
     CALL bpsd_adjust_karray(trmatrixx%kunit,trmatrixx%ndmax)
     CALL bpsd_adjust_array1D(trmatrixx%rho,trmatrixx%nrmax)
@@ -151,6 +146,14 @@ contains
     integer :: nr, nd, ns, mode
     real(dp), dimension(:), ALLOCATABLE :: v
 
+    ! Defensive zero-init mirroring bpsd_get_plasmaf / bpsd_get_trsource:
+    ! a caller passing in a stale (non-zero) %nrmax would silently take the
+    ! spline path below and produce wrong-mode results. Resetting here makes
+    ! the default mode-0 readback deterministic regardless of caller state.
+    trmatrix_out%nrmax = 0
+    trmatrix_out%nsmax = 0
+    trmatrix_out%time  = 0.0_dp
+
     if(bpsd_trmatrixx_init_flag) call bpsd_init_trmatrixx
 
     if(trmatrixx%status.eq.0) then
@@ -171,7 +174,7 @@ contains
     else
        mode=1
     endif
-    trmatrix_out%nsmax = (trmatrixx%ndmax-1)/6
+    trmatrix_out%nsmax = trmatrixx%ndmax/6
 
     CALL bpsd_adjust_array1D(trmatrix_out%rho,trmatrix_out%nrmax)
     CALL bpsd_adjust_trmatrix_data(trmatrix_out%data,trmatrix_out%nrmax, &
@@ -322,5 +325,41 @@ contains
     return
 
   end subroutine bpsd_load_trmatrix
+
+!-----------------------------------------------------------------------
+  subroutine bpsd_get_trmatrix_kdata(ndmax_out,kid_out,kunit_out,ierr)
+!-----------------------------------------------------------------------
+! Read-only accessor for the internal trmatrixx kid/kunit metadata.
+! Used by tests to verify the labels are Dn/Dp/DT/un/up/uT without
+! parsing the on-disk unformatted file (which depends on compiler
+! record-marker conventions).
+
+    use bpsd_subs
+    implicit none
+    integer,intent(out) :: ndmax_out
+    character(len=32),dimension(:),allocatable,intent(out) :: kid_out
+    character(len=32),dimension(:),allocatable,intent(out) :: kunit_out
+    integer,intent(out) :: ierr
+    integer :: nd
+
+    if(bpsd_trmatrixx_init_flag) call bpsd_init_trmatrixx
+
+    if(trmatrixx%status.lt.2) then
+       ndmax_out = 0
+       ierr = 1
+       return
+    endif
+
+    ndmax_out = trmatrixx%ndmax
+    if(allocated(kid_out))   deallocate(kid_out)
+    if(allocated(kunit_out)) deallocate(kunit_out)
+    allocate(kid_out(ndmax_out))
+    allocate(kunit_out(ndmax_out))
+    do nd = 1, ndmax_out
+       kid_out(nd)   = trmatrixx%kid(nd)
+       kunit_out(nd) = trmatrixx%kunit(nd)
+    end do
+    ierr = 0
+  end subroutine bpsd_get_trmatrix_kdata
 
 end module bpsd_trmatrix
