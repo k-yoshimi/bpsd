@@ -80,7 +80,7 @@ CONTAINS
     INTEGER(ikind),INTENT(IN):: n1,n2,n3
 
     IF(ALLOCATED(data)) THEN
-       IF(n1.LE.0.OR.n2.LE.0.OR.n2.LE.0) THEN
+       IF(n1.LE.0.OR.n2.LE.0.OR.n3.LE.0) THEN
           DEALLOCATE(data)
        ELSE IF(n1.NE.SIZE(data,1).OR.n2.NE.SIZE(data,2).OR. &
                n3.NE.SIZE(data,3)) THEN

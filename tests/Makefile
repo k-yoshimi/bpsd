@@ -39,6 +39,7 @@ TESTS = \
     test_put_get_equ1D \
     test_put_get_metric1D \
     test_put_get_plasmaf \
+    test_put_get_species \
     test_put_get_trmatrix \
     test_put_get_trsource \
     test_save_load_roundtrip

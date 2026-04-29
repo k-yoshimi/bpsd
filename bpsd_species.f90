@@ -2,12 +2,20 @@
 
 module bpsd_species
 
+  use bpsd_kinds
   use bpsd_flags
   use bpsd_types
   use bpsd_types_internal
   public bpsd_put_species,bpsd_get_species, &
-         bpsd_save_species,bpsd_load_species
+         bpsd_save_species,bpsd_load_species, &
+         bpsd_get_species_kdata
   private
+
+  ! Number of scalar fields packed per species in the flat speciesx
+  ! buffer. Single source of truth for the put/get/setup_kdata layout;
+  ! changing bpsd_species_data must be matched by updating this and
+  ! the kid/kunit assignments below.
+  integer(ikind), parameter :: nfields = 3   ! pa, pz, npa
 
   logical, save :: bpsd_speciesx_init_flag = .TRUE.
   type(bpsd_data0Dx_type), save :: speciesx
@@ -35,14 +43,11 @@ contains
     IMPLICIT NONE
     integer(ikind):: nd
 
-    ! Loop bound was `ndmax-1` which writes 1 element past the kid/kunit
-    ! arrays when ndmax = nsmax*5 (line 82) but the stride is 3.
-    ! With nsmax=4, ndmax=20, last iteration nd=18 writes kid(21) which
-    ! overflows 32 bytes of CHARACTER(LEN=32) past the array end and
-    ! smashes adjacent malloc metadata, causing
-    ! "corrupted size vs prev_size" SIGABRT in callers (notably the
-    ! libtrapi.so Python wrapper). Stop at the last full triplet.
-    do nd=0,speciesx%ndmax-3,3
+    ! Single source of truth for the layout is the `nfields` parameter
+    ! at module top. Earlier revisions had ndmax = nsmax*5 with stride
+    ! 3, which left 2 trailing slots per species uninitialized and
+    ! visible to bpsd_save_data0Dx.
+    do nd=0,speciesx%ndmax-nfields,nfields
        speciesx%kid(nd+1)='species%pa'
        speciesx%kid(nd+2)='species%pz'
        speciesx%kid(nd+3)='species%npa'
@@ -86,7 +91,7 @@ contains
 
     if(bpsd_speciesx_init_flag) call bpsd_init_speciesx
 
-    speciesx%ndmax=species_in%nsmax*5
+    speciesx%ndmax=species_in%nsmax*nfields
     CALL bpsd_adjust_karray(speciesx%kid,speciesx%ndmax)
     CALL bpsd_adjust_karray(speciesx%kunit,speciesx%ndmax)
     CALL bpsd_adjust_array1D(speciesx%data,speciesx%ndmax)
@@ -94,7 +99,7 @@ contains
     CALL bpsd_setup_species_kdata
 
     do ns=1,species_in%nsmax
-       nd=3*(ns-1)
+       nd=nfields*(ns-1)
        speciesx%data(nd+1)=species_in%data(ns)%pa
        speciesx%data(nd+2)=species_in%data(ns)%pz
        speciesx%data(nd+3)=species_in%data(ns)%npa
@@ -142,12 +147,12 @@ contains
        return
     endif
 
-    species_out%nsmax=speciesx%ndmax/5
+    species_out%nsmax=speciesx%ndmax/nfields
 
     CALL bpsd_adjust_species_data(species_out%data,species_out%nsmax)
 
     do ns=1,species_out%nsmax
-       nd=3*(ns-1)
+       nd=nfields*(ns-1)
        species_out%data(ns)%pa =speciesx%data(nd+1)
        species_out%data(ns)%pz =speciesx%data(nd+2)
        species_out%data(ns)%npa=NINT(speciesx%data(nd+3))
@@ -214,5 +219,40 @@ contains
     return
 
   end subroutine bpsd_load_species
+
+!-----------------------------------------------------------------------
+  subroutine bpsd_get_species_kdata(ndmax_out,kid_out,kunit_out,ierr)
+!-----------------------------------------------------------------------
+! Read-only accessor for the internal speciesx kid/kunit metadata.
+! Mirrors bpsd_get_trmatrix_kdata so tests can verify the on-array
+! layout directly without parsing the unformatted save file.
+
+    use bpsd_subs
+    implicit none
+    integer,intent(out) :: ndmax_out
+    character(len=32),dimension(:),allocatable,intent(out) :: kid_out
+    character(len=32),dimension(:),allocatable,intent(out) :: kunit_out
+    integer,intent(out) :: ierr
+    integer :: nd
+
+    if(bpsd_speciesx_init_flag) call bpsd_init_speciesx
+
+    if(speciesx%status.lt.2) then
+       ndmax_out = 0
+       ierr = 1
+       return
+    endif
+
+    ndmax_out = speciesx%ndmax
+    if(allocated(kid_out))   deallocate(kid_out)
+    if(allocated(kunit_out)) deallocate(kunit_out)
+    allocate(kid_out(ndmax_out))
+    allocate(kunit_out(ndmax_out))
+    do nd = 1, ndmax_out
+       kid_out(nd)   = speciesx%kid(nd)
+       kunit_out(nd) = speciesx%kunit(nd)
+    end do
+    ierr = 0
+  end subroutine bpsd_get_species_kdata
 
 end module bpsd_species
