@@ -10,6 +10,11 @@ module bpsd_trsource
          bpsd_save_trsource,bpsd_load_trsource
   private
 
+  ! Number of scalar fields packed per species in the flat trsourcex
+  ! buffer. Single source of truth for the put/get/setup_kdata layout.
+  integer(ikind), parameter :: nfields = 10
+  ! nip, nim, ncx, Pec, Plh, Pic, Pbr, Pcy, Plr, Poh
+
   logical, save :: bpsd_trsourcex_init_flag = .TRUE.
   type(bpsd_data1Dx_type), save :: trsourcex
 
@@ -57,7 +62,7 @@ contains
     IMPLICIT NONE
     integer(ikind):: nd
 
-    do nd=0,trsourcex%ndmax-2,10
+    do nd=0,trsourcex%ndmax-nfields,nfields
        trsourcex%kid(nd+1)='trsource%nip'
        trsourcex%kid(nd+2)='trsource%nim'
        trsourcex%kid(nd+3)='trsource%ncx'
@@ -95,7 +100,7 @@ contains
     if(bpsd_trsourcex_init_flag) call bpsd_init_trsourcex
 
     trsourcex%nrmax=trsource_in%nrmax
-    trsourcex%ndmax=trsource_in%nsmax*10
+    trsourcex%ndmax=trsource_in%nsmax*nfields
     CALL bpsd_adjust_karray(trsourcex%kid,trsourcex%ndmax)
     CALL bpsd_adjust_karray(trsourcex%kunit,trsourcex%ndmax)
     CALL bpsd_adjust_array1D(trsourcex%rho,trsourcex%nrmax)
@@ -107,7 +112,7 @@ contains
     do nr=1,trsource_in%nrmax
        trsourcex%rho(nr) = trsource_in%rho(nr)
        do ns=1,trsource_in%nsmax
-          nd=10*(ns-1)
+          nd=nfields*(ns-1)
           trsourcex%data(nr,nd+1) = trsource_in%data(nr,ns)%nip
           trsourcex%data(nr,nd+2) = trsource_in%data(nr,ns)%nim
           trsourcex%data(nr,nd+3) = trsource_in%data(nr,ns)%ncx
@@ -186,7 +191,7 @@ contains
     else
        mode=1
     endif
-    trsource_out%nsmax = trsourcex%ndmax/10
+    trsource_out%nsmax = trsourcex%ndmax/nfields
 
     CALL bpsd_adjust_array1D(trsource_out%rho,trsource_out%nrmax)
     CALL bpsd_adjust_trsource_data(trsource_out%data,trsource_out%nrmax, &
@@ -197,7 +202,7 @@ contains
        do nr=1,trsourcex%nrmax
           trsource_out%rho(nr)=trsourcex%rho(nr)
           do ns=1,trsource_out%nsmax
-             nd=10*(ns-1)
+             nd=nfields*(ns-1)
              trsource_out%data(nr,ns)%nip =trsourcex%data(nr,nd+1)
              trsource_out%data(nr,ns)%nim =trsourcex%data(nr,nd+2)
              trsource_out%data(nr,ns)%ncx =trsourcex%data(nr,nd+3)
@@ -215,7 +220,9 @@ contains
     endif
 
     if(trsourcex%status.eq.2) then
-       CALL bpsd_adjust_array3D(trsourcex%spline,10,trsourcex%nrmax, &
+       ! spline first-dim is the cubic-spline coefficient count from
+       ! spl1D's U(4, NXMAX) interface; unrelated to nfields.
+       CALL bpsd_adjust_array3D(trsourcex%spline,4,trsourcex%nrmax, &
                                                     trsourcex%ndmax)
        trsourcex%status=3
     endif
@@ -238,7 +245,7 @@ contains
           call bpsd_spl1DF(trsource_out%rho(nr),v(nd),trsourcex,nd,ierr)
        enddo
        do ns=1,trsource_out%nsmax
-          nd=10*(ns-1)
+          nd=nfields*(ns-1)
           trsource_out%data(nr,ns)%nip  = v(nd+1)
           trsource_out%data(nr,ns)%nim  = v(nd+2)
           trsource_out%data(nr,ns)%ncx  = v(nd+3)

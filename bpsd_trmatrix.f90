@@ -11,6 +11,10 @@ module bpsd_trmatrix
          bpsd_get_trmatrix_kdata
   private
 
+  ! Number of scalar fields packed per species in the flat trmatrixx
+  ! buffer. Single source of truth for the put/get/setup_kdata layout.
+  integer(ikind), parameter :: nfields = 6   ! Dn, Dp, DT, un, up, uT
+
   logical, save :: bpsd_trmatrixx_init_flag = .TRUE.
   type(bpsd_data1Dx_type), save :: trmatrixx
 
@@ -58,7 +62,7 @@ contains
     IMPLICIT NONE
     integer(ikind):: nd
 
-    do nd=0,trmatrixx%ndmax-1,6
+    do nd=0,trmatrixx%ndmax-nfields,nfields
        trmatrixx%kid(nd+1)='trmatrix%Dn'
        trmatrixx%kid(nd+2)='trmatrix%Dp'
        trmatrixx%kid(nd+3)='trmatrix%DT'
@@ -88,7 +92,7 @@ contains
     if(bpsd_trmatrixx_init_flag) call bpsd_init_trmatrixx
 
     trmatrixx%nrmax=trmatrix_in%nrmax
-    trmatrixx%ndmax=trmatrix_in%nsmax*6
+    trmatrixx%ndmax=trmatrix_in%nsmax*nfields
     CALL bpsd_adjust_karray(trmatrixx%kid,trmatrixx%ndmax)
     CALL bpsd_adjust_karray(trmatrixx%kunit,trmatrixx%ndmax)
     CALL bpsd_adjust_array1D(trmatrixx%rho,trmatrixx%nrmax)
@@ -100,7 +104,7 @@ contains
     do nr=1,trmatrix_in%nrmax
        trmatrixx%rho(nr) = trmatrix_in%rho(nr)
        do ns=1,trmatrix_in%nsmax
-          nd=6*(ns-1)
+          nd=nfields*(ns-1)
           trmatrixx%data(nr,nd+1) = trmatrix_in%data(nr,ns)%Dn
           trmatrixx%data(nr,nd+2) = trmatrix_in%data(nr,ns)%Dp
           trmatrixx%data(nr,nd+3) = trmatrix_in%data(nr,ns)%DT
@@ -174,7 +178,7 @@ contains
     else
        mode=1
     endif
-    trmatrix_out%nsmax = trmatrixx%ndmax/6
+    trmatrix_out%nsmax = trmatrixx%ndmax/nfields
 
     CALL bpsd_adjust_array1D(trmatrix_out%rho,trmatrix_out%nrmax)
     CALL bpsd_adjust_trmatrix_data(trmatrix_out%data,trmatrix_out%nrmax, &
@@ -185,7 +189,7 @@ contains
        do nr=1,trmatrixx%nrmax
           trmatrix_out%rho(nr)=trmatrixx%rho(nr)
           do ns=1,trmatrix_out%nsmax
-             nd=6*(ns-1)
+             nd=nfields*(ns-1)
              trmatrix_out%data(nr,ns)%Dn =trmatrixx%data(nr,nd+1)
              trmatrix_out%data(nr,ns)%Dp =trmatrixx%data(nr,nd+2)
              trmatrix_out%data(nr,ns)%DT =trmatrixx%data(nr,nd+3)
@@ -199,7 +203,9 @@ contains
     endif
 
     if(trmatrixx%status.eq.2) then
-       CALL bpsd_adjust_array3D(trmatrixx%spline,6,trmatrixx%nrmax, &
+       ! spline first-dim is the cubic-spline coefficient count from
+       ! spl1D's U(4, NXMAX) interface; unrelated to nfields.
+       CALL bpsd_adjust_array3D(trmatrixx%spline,4,trmatrixx%nrmax, &
                                                    trmatrixx%ndmax)
        trmatrixx%status=3
     endif
@@ -222,7 +228,7 @@ contains
           call bpsd_spl1DF(trmatrix_out%rho(nr),v(nd),trmatrixx,nd,ierr)
        enddo
        do ns=1,trmatrix_out%nsmax
-          nd=6*(ns-1)
+          nd=nfields*(ns-1)
           trmatrix_out%data(nr,ns)%Dn  = v(nd+1)
           trmatrix_out%data(nr,ns)%Dp  = v(nd+2)
           trmatrix_out%data(nr,ns)%DT  = v(nd+3)

@@ -13,6 +13,16 @@ module bpsd_plasmaf
   PUBLIC bpsd_save_plasmaf
   PUBLIC bpsd_load_plasmaf
 
+  ! Single source of truth for the flat plasmafx layout:
+  !   ndmax = nsmax * nfields + nqinv
+  ! where the per-species block of `nfields` slots is followed by a
+  ! single trailing qinv slot (nqinv=1).
+  integer(ikind), parameter :: nfields = 12
+  ! density, temperature, temperature_para, temperature_perp,
+  ! velocity_tor, velocity_pol, velocity_para, velocity_perp,
+  ! zave, z2ave, density_fastion, energy_fastion
+  integer(ikind), parameter :: nqinv   = 1
+
   logical, save :: bpsd_plasmafx_init_flag = .TRUE.
   type(bpsd_data1Dx_type), save :: plasmafx
 
@@ -60,7 +70,7 @@ contains
     IMPLICIT NONE
     integer(ikind):: nd
 
-    do nd=0,plasmafx%ndmax-2,12
+    do nd=0,plasmafx%ndmax-nqinv-nfields,nfields
        plasmafx%kid(nd+1)='plasmaf%density'
        plasmafx%kid(nd+2)='plasmaf%temperature'
        plasmafx%kid(nd+3)='plasmaf%temperature_para'
@@ -104,7 +114,7 @@ contains
     if(bpsd_plasmafx_init_flag) call bpsd_init_plasmafx
 
     plasmafx%nrmax=plasmaf_in%nrmax
-    plasmafx%ndmax=plasmaf_in%nsmax*12+1
+    plasmafx%ndmax=plasmaf_in%nsmax*nfields+nqinv
     CALL bpsd_adjust_karray(plasmafx%kid,plasmafx%ndmax)
     CALL bpsd_adjust_karray(plasmafx%kunit,plasmafx%ndmax)
     CALL bpsd_adjust_array1D(plasmafx%rho,plasmafx%nrmax)
@@ -116,7 +126,7 @@ contains
     do nr=1,plasmaf_in%nrmax
        plasmafx%rho(nr) = plasmaf_in%rho(nr)
        do ns=1,plasmaf_in%nsmax
-          nd=12*(ns-1)
+          nd=nfields*(ns-1)
           plasmafx%data(nr,nd+1) = plasmaf_in%data(nr,ns)%density
           plasmafx%data(nr,nd+2) = plasmaf_in%data(nr,ns)%temperature
           plasmafx%data(nr,nd+3) = plasmaf_in%data(nr,ns)%temperature_para
@@ -204,7 +214,7 @@ contains
     else
        mode=1
     endif
-    plasmaf_out%nsmax = (plasmafx%ndmax-1)/12
+    plasmaf_out%nsmax = (plasmafx%ndmax-nqinv)/nfields
 
     CALL bpsd_adjust_array1D(plasmaf_out%rho,plasmaf_out%nrmax)
     CALL bpsd_adjust_array1D(plasmaf_out%qinv,plasmaf_out%nrmax)
@@ -216,7 +226,7 @@ contains
        do nr=1,plasmafx%nrmax
           plasmaf_out%rho(nr)=plasmafx%rho(nr)
           do ns=1,plasmaf_out%nsmax
-             nd=12*(ns-1)
+             nd=nfields*(ns-1)
              plasmaf_out%data(nr,ns)%density         =plasmafx%data(nr,nd+1)
              plasmaf_out%data(nr,ns)%temperature     =plasmafx%data(nr,nd+2)
              plasmaf_out%data(nr,ns)%temperature_para=plasmafx%data(nr,nd+3)
@@ -260,7 +270,7 @@ contains
           call bpsd_spl1DF(plasmaf_out%rho(nr),v(nd),plasmafx,nd,ierr)
        enddo
        do ns=1,plasmaf_out%nsmax
-          nd=12*(ns-1)
+          nd=nfields*(ns-1)
           plasmaf_out%data(nr,ns)%density          = v(nd+1)
           plasmaf_out%data(nr,ns)%temperature      = v(nd+2)
           plasmaf_out%data(nr,ns)%temperature_para = v(nd+3)
