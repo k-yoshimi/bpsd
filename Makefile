@@ -12,9 +12,6 @@ OBJDIR=./obj
 
 MODINCLUDE= -I./$(MOD)
 
-${OBJDIR}/%.o:%.f90
-	$(FCFREE) $(FFLAGS) -c $< -o $@ $(MODDIR) $(MODINCLUDE)
-
 SRCS = bpsd_kinds.f90 bpsd_constants.f90 bpsd_flags.f90 \
        bpsd_libchar.f90 bpsd_libfio.f90 bpsd_libspl.f90 \
        bpsd_types.f90 bpsd_types_internal.f90 bpsd_subs.f90 \
@@ -29,13 +26,31 @@ LIBS=libbpsd.a
 
 all : libbpsd.a
 
+# Pattern + directory rules below `all` so they don't become the default goal.
+$(OBJDIR):
+	mkdir -p $(OBJDIR)
+
+$(MOD):
+	mkdir -p $(MOD)
+
+${OBJDIR}/%.o:%.f90 | $(OBJDIR) $(MOD)
+	$(FCFREE) $(FFLAGS) -c $< -o $@ $(MODDIR) $(MODINCLUDE)
+
 libbpsd.a: $(OBJS)
 	$(LD) $(LDFLAGS) $@ $(OBJS)
+
+# Standalone BPSD tests with gfortran -fcheck=all -Wall -Wextra.
+# Independent of TASK's make.header so it works in a bare BPSD checkout.
+test:
+	$(MAKE) -C tests test
+
+testclean:
+	$(MAKE) -C tests clean
 
 clean:
 	-rm -f core a.out *.o *.mod ./*~ ./#* *.a $(OBJDIR)/*.o $(MOD)/*.mod
 
-veryclean: clean
+veryclean: clean testclean
 
 BPSD_COMMON = bpsd_subs.f90 bpsd_types_internal.f90 bpsd_types.f90 \
 	      bpsd_flags.f90 bpsd_constants.f90 bpsd_kinds.f90 
@@ -50,7 +65,7 @@ $(OBJDIR)/bpsd_libfio.o:	bpsd_libfio.f90
 $(OBJDIR)/bpsd_libspl.o:	bpsd_libspl.f90
 $(OBJDIR)/bpsd_types.o:		bpsd_types.f90 bpsd_kinds.f90
 $(OBJDIR)/bpsd_types_internal.o:bpsd_types_internal.f90 bpsd_kinds.f90
-$(OBJDIR)/$(OBJDIR)/bpsd_subs.o:bpsd_subs.f90 bpsd_types_internal.f90 bpsd_kinds.f90
+$(OBJDIR)/bpsd_subs.o:		bpsd_subs.f90 bpsd_types_internal.f90 bpsd_kinds.f90
 $(OBJDIR)/bpsd_shot.o:		bpsd_shot.f90 $(BPSD_COMMON)
 $(OBJDIR)/bpsd_device.o:	bpsd_device.f90 $(BPSD_COMMON)
 $(OBJDIR)/bpsd_species.o:	bpsd_species.f90 $(BPSD_COMMON)

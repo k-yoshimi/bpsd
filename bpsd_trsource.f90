@@ -157,6 +157,15 @@ contains
     integer :: nr, nd, ns, mode
     real(dp), dimension(:), ALLOCATABLE :: v
 
+    ! INTENT(OUT) on a derived type with allocatable components leaves
+    ! scalar fields UNDEFINED on entry per Fortran 2003+. The body
+    ! below tests trsource_out%nrmax to choose mode; without this reset
+    ! that test reads heap garbage. Mirrors the plasmaf fix in
+    ! bpsd_get_plasmaf.
+    trsource_out%nrmax = 0
+    trsource_out%nsmax = 0
+    trsource_out%time  = 0.0_dp
+
     if(bpsd_trsourcex_init_flag) call bpsd_init_trsourcex
 
     if(trsourcex%status.eq.0) then
