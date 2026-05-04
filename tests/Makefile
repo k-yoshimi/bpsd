@@ -42,7 +42,8 @@ TESTS = \
     test_put_get_species \
     test_put_get_trmatrix \
     test_put_get_trsource \
-    test_save_load_roundtrip
+    test_save_load_roundtrip \
+    test_get_device_no_data
 
 TEST_BINS = $(addprefix $(OBJDIR)/, $(TESTS))
 
