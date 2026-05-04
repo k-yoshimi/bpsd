@@ -94,8 +94,17 @@ contains
 
     if(bpsd_devicex_init_flag) call bpsd_devicex_init
 
-    if(devicex%status.eq.1) then
-       write(6,*) 'XX bpsd_get_device: no data in device'
+    ! status meanings:
+    !   0 = devicex_init done; data(8) allocated but never put
+    !   2 = bpsd_put_device has populated data(8)
+    ! Reject status<2 (covers the never-allocated and the
+    ! allocated-but-never-put cases). The earlier check (status==1)
+    ! never fired -- devicex_init sets status=0, so a fresh init
+    ! followed by a get would silently read uninitialised data(1..8)
+    ! (ALLOCATE without zero-init) and return ierr=0. Match the lt-2
+    ! pattern used in bpsd_get_species_kunit (bpsd_species.f90:240).
+    if(devicex%status.lt.2) then
+       write(6,*) 'XX bpsd_get_device: no data in device (status<2)'
        ierr=2
        return
     endif
