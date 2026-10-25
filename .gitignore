@@ -2,3 +2,10 @@
 *~
 *.[oa]
 *.mod
+
+# Local Claude Code session state and settings
+.claude/
+patches/
+tests/obj/
+tests/mod/
+tests/bpsd.data
