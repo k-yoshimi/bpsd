@@ -246,7 +246,9 @@ contains
        return
 !    endif
 
-    if(plasmafx%status.eq.2) then
+!   A put on a different grid after a get leaves status 3 with the spline
+!   of the earlier grid: adjust it here too (a no-op when the size is the same).
+    if(plasmafx%status.eq.2 .or. plasmafx%status.eq.3) then
        CALL bpsd_adjust_array3D(plasmafx%spline,4,plasmafx%nrmax, &
                                                   plasmafx%ndmax)
        plasmafx%status=3
