@@ -165,7 +165,9 @@ contains
        return
     endif
 
-    if(equ1Dx%status.eq.2) then
+!   A put on a different grid after a get leaves status 3 with the spline
+!   of the earlier grid: adjust it here too (a no-op when the size is the same).
+    if(equ1Dx%status.eq.2 .or. equ1Dx%status.eq.3) then
        CALL bpsd_adjust_array3D(equ1Dx%spline,4,equ1Dx%nrmax,equ1Dx%ndmax)
        equ1Dx%status=3
     endif

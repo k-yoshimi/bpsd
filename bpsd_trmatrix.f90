@@ -202,7 +202,9 @@ contains
        return
     endif
 
-    if(trmatrixx%status.eq.2) then
+!   A put on a different grid after a get leaves status 3 with the spline
+!   of the earlier grid: adjust it here too (a no-op when the size is the same).
+    if(trmatrixx%status.eq.2 .or. trmatrixx%status.eq.3) then
        ! spline first-dim is the cubic-spline coefficient count from
        ! spl1D's U(4, NXMAX) interface; unrelated to nfields.
        CALL bpsd_adjust_array3D(trmatrixx%spline,4,trmatrixx%nrmax, &

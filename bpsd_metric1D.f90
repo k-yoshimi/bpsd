@@ -225,7 +225,9 @@ contains
        return
     endif
 
-    if(metric1Dx%status.eq.2) then
+!   A put on a different grid after a get leaves status 3 with the spline
+!   of the earlier grid: adjust it here too (a no-op when the size is the same).
+    if(metric1Dx%status.eq.2 .or. metric1Dx%status.eq.3) then
        CALL bpsd_adjust_array3D(metric1Dx%spline,4,metric1Dx%nrmax, &
                                                    metric1Dx%ndmax)
        metric1Dx%status=3
